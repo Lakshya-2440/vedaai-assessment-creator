@@ -88,7 +88,25 @@ npm run services:down
 
 ## Deploy Notes
 
-Deploy frontend on Vercel/Netlify and backend on Render/Railway/Fly. Use managed MongoDB Atlas and managed Redis in production. Set:
+GitHub repo:
+
+```text
+https://github.com/Lakshya-2440/vedaai-assessment-creator
+```
+
+Backend has a validated Render Blueprint in `render.yaml`. It provisions the API and Redis. Add secrets in Render Dashboard:
+
+- `CLIENT_ORIGIN`: deployed frontend URL
+- `MONGODB_URI`: MongoDB Atlas connection string
+- `HF_TOKEN`: Hugging Face token
+
+Render Blueprint deeplink:
+
+```text
+https://dashboard.render.com/blueprint/new?repo=https://github.com/Lakshya-2440/vedaai-assessment-creator
+```
+
+Deploy frontend on Vercel from `apps/web`. Set:
 
 - Web: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL`
 - API: `CLIENT_ORIGIN`, `MONGODB_URI`, `REDIS_URL`, `HF_TOKEN`, `HF_MODEL`

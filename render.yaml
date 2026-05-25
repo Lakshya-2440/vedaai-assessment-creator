@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: vedaai-api
+    runtime: node
+    plan: free
+    rootDir: apps/api
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: CLIENT_ORIGIN
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: REDIS_URL
+        fromDatabase:
+          name: vedaai-redis
+          property: connectionString
+      - key: HF_TOKEN
+        sync: false
+      - key: HF_MODEL
+        value: mistralai/Mistral-7B-Instruct-v0.3
+
+databases:
+  - name: vedaai-redis
+    plan: free
+    ipAllowList: []
