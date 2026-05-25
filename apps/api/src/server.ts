@@ -19,12 +19,12 @@ const upload = multer({
 
 const io = new SocketServer(server, {
   cors: {
-    origin: config.clientOrigin,
+    origin: isAllowedOrigin,
     methods: ["GET", "POST"],
   },
 });
 
-app.use(cors({ origin: config.clientOrigin }));
+app.use(cors({ origin: isAllowedOrigin }));
 app.use(express.json({ limit: "2mb" }));
 
 io.on("connection", (socket) => {
@@ -127,6 +127,16 @@ function mergeSourceText(sourceText?: string, file?: Express.Multer.File) {
 
 function slug(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "question-paper";
+}
+
+function isAllowedOrigin(origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) {
+  if (!origin) return callback(null, true);
+  const normalized = origin.replace(/\/+$/, "");
+  const allowed =
+    config.clientOrigins.includes(normalized) ||
+    normalized.endsWith(".vercel.app") ||
+    normalized === "http://localhost:3000";
+  callback(allowed ? null : new Error(`Origin ${origin} not allowed by CORS`), allowed);
 }
 
 await connectMongo();
