@@ -204,12 +204,15 @@ function PaperView({ paper }: { paper: QuestionPaper }) {
                       </p>
                       {question.type === "mcq" && question.options?.length === 4 && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3 pl-4">
-                          {question.options.map((opt, i) => (
-                            <div key={i} className="flex gap-2">
-                              <span>{String.fromCharCode(65 + i)}.</span>
-                              <span>{opt}</span>
-                            </div>
-                          ))}
+                          {question.options.map((opt, i) => {
+                            const cleaned = opt.replace(/^[A-Da-d][).:\-]\s*/, "");
+                            return (
+                              <div key={i} className="flex gap-2">
+                                <span>{String.fromCharCode(65 + i)}.</span>
+                                <span>{cleaned}</span>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>

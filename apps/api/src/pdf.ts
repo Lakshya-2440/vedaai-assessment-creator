@@ -53,11 +53,12 @@ export function createPaperPdf(paper: QuestionPaper): PDFKit.PDFDocument {
       doc.text(`${index + 1}. [${difficultyStr}] ${question.text} [${question.marks} Marks]`);
       
       if (question.type === "mcq" && question.options && question.options.length === 4) {
+        const clean = (s: string) => s.replace(/^[A-Da-d][).:\-]\s*/, "");
         doc.moveDown(0.3);
-        doc.text(`    A. ${question.options[0]}`);
-        doc.text(`    B. ${question.options[1]}`);
-        doc.text(`    C. ${question.options[2]}`);
-        doc.text(`    D. ${question.options[3]}`);
+        doc.text(`    A. ${clean(question.options[0])}`);
+        doc.text(`    B. ${clean(question.options[1])}`);
+        doc.text(`    C. ${clean(question.options[2])}`);
+        doc.text(`    D. ${clean(question.options[3])}`);
       }
       
       doc.moveDown(0.8);
