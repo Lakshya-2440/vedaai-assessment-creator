@@ -150,7 +150,7 @@ export default function CreateAssignment() {
                 <div className="relative">
                   <select 
                     value={type.id}
-                    onChange={(e) => updateType(index, "id", e.target.value)}
+                    onChange={(e) => updateType(index, "id", e.target.value as QuestionType)}
                     className="w-full appearance-none bg-white border border-gray-100 shadow-sm rounded-xl py-2.5 pl-4 pr-10 text-sm text-gray-700 font-medium outline-none focus:border-gray-300"
                   >
                     {availableTypes.map(t => (
