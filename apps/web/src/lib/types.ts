@@ -1,6 +1,12 @@
 export type Difficulty = "easy" | "medium" | "hard";
-export type QuestionType = "mcq" | "short" | "long" | "case";
+export type QuestionType = "mcq" | "short" | "long" | "case" | "numerical";
 export type AssignmentStatus = "queued" | "generating" | "completed" | "failed";
+
+export type QuestionTypeConfig = {
+  type: QuestionType;
+  count: number;
+  marks: number;
+};
 
 export type Question = {
   id: string;
@@ -8,6 +14,8 @@ export type Question = {
   difficulty: Difficulty;
   marks: number;
   type: QuestionType;
+  options?: string[];
+  answer?: string;
 };
 
 export type QuestionSection = {
@@ -30,7 +38,7 @@ export type Assignment = {
   title: string;
   subject: string;
   dueDate: string;
-  questionTypes: QuestionType[];
+  questionTypes: QuestionTypeConfig[];
   questionCount: number;
   marksPerQuestion: number;
   durationMinutes: number;

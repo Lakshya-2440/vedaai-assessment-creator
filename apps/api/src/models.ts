@@ -7,7 +7,9 @@ const QuestionSchema = new Schema(
     text: { type: String, required: true },
     difficulty: { type: String, enum: ["easy", "medium", "hard"], required: true },
     marks: { type: Number, required: true },
-    type: { type: String, enum: ["mcq", "short", "long", "case"], required: true },
+    type: { type: String, enum: ["mcq", "short", "long", "case", "numerical"], required: true },
+    options: [String],
+    answer: String,
   },
   { _id: false },
 );
@@ -38,7 +40,14 @@ const AssignmentSchema = new Schema<AssignmentRecord>(
     title: { type: String, required: true },
     subject: { type: String, required: true },
     dueDate: { type: String, required: true },
-    questionTypes: [{ type: String, enum: ["mcq", "short", "long", "case"], required: true }],
+    questionTypes: [
+      {
+        _id: false,
+        type: { type: String, enum: ["mcq", "short", "long", "case", "numerical"], required: true },
+        count: { type: Number, required: true },
+        marks: { type: Number, required: true },
+      },
+    ],
     questionCount: { type: Number, required: true },
     marksPerQuestion: { type: Number, required: true },
     durationMinutes: { type: Number, required: true },

@@ -19,7 +19,7 @@ export async function enqueueGeneration(assignmentId: string, request: Assignmen
     "generate-paper",
     request,
     {
-      jobId: assignmentId,
+      jobId: `${assignmentId}-${Date.now()}`,
       attempts: 2,
       backoff: { type: "exponential", delay: 2000 },
       removeOnComplete: 50,
@@ -36,7 +36,7 @@ export function startGenerationWorker(io: SocketServer) {
   const worker = new Worker<AssignmentRequest>(
     "question-generation",
     async (job: Job<AssignmentRequest>) => {
-      const assignmentId = String(job.id);
+      const assignmentId = String(job.id).split('-')[0];
       await AssignmentModel.findByIdAndUpdate(assignmentId, {
         status: "generating",
         progress: 15,
@@ -69,7 +69,7 @@ export function startGenerationWorker(io: SocketServer) {
   );
 
   worker.on("failed", async (job, error) => {
-    const assignmentId = String(job?.id);
+    const assignmentId = String(job?.id).split('-')[0];
     await AssignmentModel.findByIdAndUpdate(assignmentId, {
       status: "failed",
       progress: 100,

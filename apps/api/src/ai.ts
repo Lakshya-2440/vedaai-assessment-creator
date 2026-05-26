@@ -1,4 +1,4 @@
-import { InferenceClient } from "@huggingface/inference";
+import { InferenceClient } from "@huggingface/inference"; // Trigger restart
 import { config } from "./config.js";
 import type { AssignmentRequest, Difficulty, QuestionPaper, QuestionType } from "./types.js";
 import { questionPaperSchema } from "./validation.js";
@@ -8,6 +8,7 @@ const sectionNames: Record<QuestionType, string> = {
   short: "Section B - Short Answer Questions",
   long: "Section C - Long Answer Questions",
   case: "Section D - Case Based Questions",
+  numerical: "Section E - Numerical Problems",
 };
 
 const instructions: Record<QuestionType, string> = {
@@ -15,6 +16,7 @@ const instructions: Record<QuestionType, string> = {
   short: "Attempt all questions. Answer in 30-50 words.",
   long: "Attempt all questions. Show reasoning and key steps.",
   case: "Read each scenario carefully and answer with evidence.",
+  numerical: "Show all calculations clearly and specify units.",
 };
 
 function pickDifficulty(index: number, input: AssignmentRequest): Difficulty {
@@ -26,38 +28,39 @@ function pickDifficulty(index: number, input: AssignmentRequest): Difficulty {
 }
 
 export function fallbackPaper(input: AssignmentRequest): QuestionPaper {
-  const questionsByType = new Map<QuestionType, number>();
-  input.questionTypes.forEach((type) => questionsByType.set(type, 0));
-
-  const sections = input.questionTypes.map((type) => ({
-    id: type,
-    title: sectionNames[type],
-    instruction: instructions[type],
+  const sections = input.questionTypes.map((config) => ({
+    id: config.type,
+    title: sectionNames[config.type],
+    instruction: instructions[config.type],
     questions: [] as QuestionPaper["sections"][number]["questions"],
   }));
 
-  for (let index = 0; index < input.questionCount; index += 1) {
-    const type = input.questionTypes[index % input.questionTypes.length];
-    const section = sections.find((item) => item.id === type)!;
-    const localNumber = (questionsByType.get(type) ?? 0) + 1;
-    questionsByType.set(type, localNumber);
-    const sourceHint = input.sourceText
-      ? "Use concepts from the uploaded study material."
-      : `Focus on ${input.subject} fundamentals.`;
+  let globalIndex = 0;
+  for (const config of input.questionTypes) {
+    const section = sections.find((s) => s.id === config.type)!;
+    for (let i = 0; i < config.count; i++) {
+      const localNumber = i + 1;
+      const sourceHint = input.sourceText
+        ? "Use concepts from the uploaded study material."
+        : `Focus on ${input.subject} fundamentals.`;
 
-    section.questions.push({
-      id: `${type}-${localNumber}`,
-      text: `${sourceHint} ${questionStem(type, input.subject, localNumber)}`,
-      difficulty: pickDifficulty(index, input),
-      marks: input.marksPerQuestion,
-      type,
-    });
+      section.questions.push({
+        id: `${config.type}-${localNumber}`,
+        text: `${sourceHint} ${questionStem(config.type, input.subject, localNumber)}`,
+        difficulty: pickDifficulty(globalIndex, input),
+        marks: config.marks,
+        type: config.type,
+        options: config.type === "mcq" ? ["Option A", "Option B", "Option C", "Option D"] : undefined,
+        answer: config.type === "mcq" ? "Option A" : "Detailed solution or key points for this question.",
+      });
+      globalIndex++;
+    }
   }
 
   return {
     title: input.title,
     subject: input.subject,
-    totalMarks: input.questionCount * input.marksPerQuestion,
+    totalMarks: input.questionTypes.reduce((acc, t) => acc + t.count * t.marks, 0),
     durationMinutes: input.durationMinutes,
     sections: sections.filter((section) => section.questions.length > 0),
   };
@@ -73,10 +76,16 @@ function questionStem(type: QuestionType, subject: string, n: number) {
   if (type === "long") {
     return `Analyze topic ${n} from ${subject} in detail and justify your conclusion.`;
   }
+  if (type === "numerical") {
+    return `Create numerical problem ${n} related to ${subject} and provide the step-by-step solution.`;
+  }
   return `Given a classroom case on ${subject}, identify problem, reasoning, and final answer for scenario ${n}.`;
 }
 
 function promptFor(input: AssignmentRequest) {
+  const allowedTypes = input.questionTypes.map((t) => `"${t.type}"`).join(" | ");
+  const breakdown = input.questionTypes.map((t) => `- ${t.count} questions of type "${t.type}" (worth ${t.marks} marks each)`).join("\n");
+  
   return `You are VedaAI, an exam paper generator for teachers.
 
 Return only valid JSON. No markdown. No commentary.
@@ -98,7 +107,9 @@ JSON schema:
           "text": string,
           "difficulty": "easy" | "medium" | "hard",
           "marks": number,
-          "type": "mcq" | "short" | "long" | "case"
+          "type": ${allowedTypes},
+          "options": ["string", "string", "string", "string"], // REQUIRED ONLY FOR MCQ, omit for others
+          "answer": "string" // REQUIRED FOR ALL QUESTIONS. Provide the correct answer or key points.
         }
       ]
     }
@@ -109,19 +120,19 @@ Teacher request:
 Title: ${input.title}
 Subject: ${input.subject}
 Due date: ${input.dueDate}
-Question count: ${input.questionCount}
-Marks per question: ${input.marksPerQuestion}
+Question Breakdown:
+${breakdown}
 Duration minutes: ${input.durationMinutes}
-Question types: ${input.questionTypes.join(", ")}
 Difficulty mix: easy ${input.difficultyMix.easy}%, medium ${input.difficultyMix.medium}%, hard ${input.difficultyMix.hard}%
 Additional instructions: ${input.instructions || "None"}
 Source material: ${input.sourceText || "No source material uploaded. Use subject knowledge."}
 
 Rules:
-- Make exactly ${input.questionCount} questions total.
+- Make exactly ${input.questionCount} questions total, strictly following the breakdown above.
 - Group questions by type into Section A, Section B, etc.
-- Every question must include difficulty and marks.
+- Every question must include difficulty and marks as requested.
 - MCQ question text must include options A-D and answer key.
+- EVERY question MUST have an "answer" field providing the correct answer, solution, or key points.
 - No raw prose outside JSON.`;
 }
 
@@ -154,9 +165,56 @@ export async function generateQuestionPaper(input: AssignmentRequest): Promise<Q
     const content = response.choices?.[0]?.message?.content;
     if (!content) throw new Error("HF response was empty");
     const parsed = JSON.parse(extractJson(content));
-    return questionPaperSchema.parse(parsed);
+    const paper = questionPaperSchema.parse(parsed);
+    return enforceCounts(paper, input);
   } catch (error) {
     console.error("HF generation failed; using structured fallback", error);
     return fallbackPaper(input);
   }
+}
+
+function enforceCounts(paper: QuestionPaper, input: AssignmentRequest): QuestionPaper {
+  const fallback = fallbackPaper(input);
+  const sections = input.questionTypes.map((config) => {
+    const generatedSection = paper.sections.find((section) =>
+      section.questions.some((question) => question.type === config.type),
+    );
+    const generatedQuestions = paper.sections.flatMap((section) => section.questions).filter((question) => question.type === config.type);
+    let questions = generatedQuestions;
+
+    if (questions.length > config.count) {
+      questions = questions.slice(0, config.count);
+    } else if (questions.length < config.count) {
+      const fallbackSection = fallback.sections.find((s) => s.id === config.type);
+      const needed = config.count - questions.length;
+      if (fallbackSection) {
+        questions.push(...fallbackSection.questions.slice(0, needed));
+      }
+    }
+
+    questions = questions.map((question) => ({
+      ...question,
+      marks: config.marks,
+      type: config.type,
+    }));
+
+    return {
+      id: config.type,
+      title:
+        generatedSection?.title ||
+        fallback.sections.find((s) => s.id === config.type)?.title ||
+        "",
+      instruction:
+        generatedSection?.instruction ||
+        fallback.sections.find((s) => s.id === config.type)?.instruction ||
+        "",
+      questions,
+    };
+  });
+
+  return {
+    ...paper,
+    totalMarks: input.questionTypes.reduce((acc, t) => acc + t.count * t.marks, 0),
+    sections: sections.filter(s => s.questions.length > 0),
+  };
 }

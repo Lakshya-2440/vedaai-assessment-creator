@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const questionTypes = ["mcq", "short", "long", "case"] as const;
+const questionTypes = ["mcq", "short", "long", "case", "numerical"] as const;
 
 function jsonArray(value: unknown) {
   if (Array.isArray(value)) return value;
@@ -19,7 +19,13 @@ export const createAssignmentSchema = z
     dueDate: z.string().trim().min(1, "Due date is required"),
     questionTypes: z.preprocess(
       jsonArray,
-      z.array(z.enum(questionTypes)).min(1, "Pick at least one question type"),
+      z.array(
+        z.object({
+          type: z.enum(questionTypes),
+          count: z.number().int().min(1),
+          marks: z.number().int().min(1),
+        })
+      ).min(1, "Pick at least one question type"),
     ),
     questionCount: z.coerce.number().int().min(1).max(60),
     marksPerQuestion: z.coerce.number().int().min(1).max(20),
@@ -28,7 +34,7 @@ export const createAssignmentSchema = z
     medium: z.coerce.number().int().min(0).max(100).default(40),
     hard: z.coerce.number().int().min(0).max(100).default(20),
     instructions: z.string().trim().max(2000).optional(),
-    sourceText: z.string().trim().max(8000).optional(),
+    sourceText: z.string().trim().max(16000).optional(),
   })
   .refine((data) => data.easy + data.medium + data.hard === 100, {
     message: "Difficulty mix must total 100",
@@ -58,6 +64,8 @@ export const questionPaperSchema = z.object({
               difficulty: z.enum(["easy", "medium", "hard"]),
               marks: z.number().int().positive(),
               type: z.enum(questionTypes),
+              options: z.array(z.string()).optional(),
+              answer: z.string().optional(),
             }),
           )
           .min(1),

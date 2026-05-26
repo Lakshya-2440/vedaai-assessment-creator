@@ -3,16 +3,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Download, Loader2, RefreshCcw, Sparkles } from "lucide-react";
+import { Download, Loader2, RefreshCcw } from "lucide-react";
 import { io, type Socket } from "socket.io-client";
-import { getAssignment, pdfUrl, regenerateAssignment, WS_URL } from "@/lib/api";
+import { getAssignment, getAssignmentResult, pdfUrl, regenerateAssignment, WS_URL } from "@/lib/api";
 import type { Assignment, Difficulty, QuestionPaper } from "@/lib/types";
 import { useAssignmentStore } from "@/store/assignment-store";
 
 const difficultyLabels: Record<Difficulty, string> = {
   easy: "Easy",
   medium: "Moderate",
-  hard: "Hard",
+  hard: "Challenging",
 };
 
 export default function AssignmentOutputPage() {
@@ -71,6 +71,30 @@ export default function AssignmentOutputPage() {
       setAssignment(response.assignment);
       setActiveAssignment(response.assignment);
       setMessage("Queued for regeneration");
+
+      let attempts = 0;
+      const maxAttempts = 12;
+      while (attempts < maxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+        const result = await getAssignmentResult(id);
+        if (result?.paper) {
+          const refreshedAssignment = {
+            ...(assignment ?? response.assignment),
+            paper: result.paper,
+            status: "completed" as const,
+            progress: 100,
+          };
+          setAssignment(refreshedAssignment);
+          setActiveAssignment(refreshedAssignment);
+          setMessage("Paper ready");
+          break;
+        }
+        attempts += 1;
+      }
+
+      if (attempts === maxAttempts) {
+        setError("Could not retrieve regenerated paper. Please try again.");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not regenerate.");
     } finally {
@@ -84,54 +108,40 @@ export default function AssignmentOutputPage() {
 
   return (
     <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <div className="sticky top-0 z-10 border-b border-[var(--line)] bg-[var(--panel)]/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <Link href="/" className="font-mono text-xs uppercase tracking-[0.18em] text-[var(--accent)]">
-              VedaAI
-            </Link>
-            <h1 className="mt-1 text-2xl font-semibold">{assignment?.title ?? "Assessment Output"}</h1>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={regenerate}
-              disabled={regenerating || !assignment}
-              className="inline-flex h-10 items-center gap-2 rounded-md border border-[var(--line)] bg-white px-4 text-sm font-semibold hover:border-[var(--accent)]"
-            >
-              {regenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
-              Regenerate
-            </button>
-            <a
-              href={paper ? pdfUrl(id) : undefined}
-              className={`inline-flex h-10 items-center gap-2 rounded-md bg-[var(--accent)] px-4 text-sm font-semibold text-white hover:bg-[var(--accent-dark)] ${paper ? "" : "pointer-events-none opacity-60"}`}
-            >
-              <Download className="h-4 w-4" />
-              PDF
-            </a>
+      <div className="sticky top-0 z-10 px-5 pt-4">
+        <div className="mx-auto max-w-7xl rounded-[28px] bg-[#232323] px-6 py-6 shadow-[0_18px_50px_rgba(0,0,0,0.18)] md:px-8 md:py-7">
+          <div className="flex flex-col gap-5 text-white md:flex-row md:items-end md:justify-between md:gap-8">
+            <div className="max-w-4xl">
+              <h1 className="mt-2 text-lg font-semibold leading-snug md:text-2xl">
+                {assignment?.subject
+                  ? `Certainly, Lakshya! Here are customized Question Paper for your CBSE Grade 8 ${assignment.subject} classes on the NCERT chapters:`
+                  : "Certainly, Lakshya! Here are customized Question Paper for your CBSE Grade 8 Science classes on the NCERT chapters:"}
+              </h1>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 md:justify-end">
+              <button
+                type="button"
+                onClick={regenerate}
+                disabled={regenerating || !assignment}
+                className="inline-flex h-12 items-center gap-2 rounded-full border border-white/15 bg-white/10 px-5 text-sm font-semibold text-white transition-colors hover:bg-white/15 disabled:pointer-events-none disabled:opacity-60"
+              >
+                {regenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
+                Regenerate
+              </button>
+              <a
+                href={paper ? pdfUrl(id) : undefined}
+                className={`inline-flex h-12 items-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-100 ${paper ? "" : "pointer-events-none opacity-60"}`}
+              >
+                <Download className="h-4 w-4" />
+                Download as PDF
+              </a>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="mx-auto grid max-w-7xl gap-6 px-5 py-6 lg:grid-cols-[280px_1fr]">
-        <aside className="h-fit rounded-lg border border-[var(--line)] bg-[var(--panel)] p-5 shadow-sm">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-[var(--accent)]" />
-            <p className="text-sm font-semibold">Live Status</p>
-          </div>
-          <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-200">
-            <div className="h-full rounded-full bg-[var(--accent)] transition-all" style={{ width: `${progress}%` }} />
-          </div>
-          <p className="mt-3 text-sm text-[var(--muted)]">{message}</p>
-          {error ? <p className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
-          <dl className="mt-5 space-y-3 text-sm">
-            <Info label="Status" value={assignment?.status ?? "loading"} />
-            <Info label="Subject" value={assignment?.subject ?? "-"} />
-            <Info label="Due" value={assignment?.dueDate ?? "-"} />
-            <Info label="Questions" value={String(assignment?.questionCount ?? "-")} />
-          </dl>
-        </aside>
-
+      <div className="mx-auto max-w-7xl px-5 py-6">
         {loading ? <Generating /> : <PaperView paper={paper} />}
       </div>
     </main>
@@ -140,58 +150,92 @@ export default function AssignmentOutputPage() {
 
 function PaperView({ paper }: { paper: QuestionPaper }) {
   return (
-    <article className="rounded-lg border border-[var(--line)] bg-white px-5 py-6 shadow-sm md:px-10 md:py-9">
-      <header className="border-b-2 border-slate-900 pb-5 text-center">
-        <p className="font-mono text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Question Paper</p>
-        <h2 className="mt-2 text-2xl font-bold md:text-4xl">{paper.title}</h2>
-        <p className="mt-3 text-sm text-[var(--muted)]">
-          {paper.subject} | Time: {paper.durationMinutes} minutes | Max Marks: {paper.totalMarks}
-        </p>
+    <article className="rounded-lg border border-[var(--line)] bg-white px-5 py-8 shadow-sm md:px-12 md:py-12 text-slate-900">
+      <header className="text-center space-y-2 mb-8">
+        <h2 className="text-2xl font-bold md:text-3xl">Delhi Public School, Sector-4, Bokaro</h2>
+        <p className="text-lg font-semibold">Subject: {paper.subject}</p>
+        <p className="text-lg font-semibold">Class: 5th</p>
       </header>
 
-      <section className="grid gap-4 border-b border-[var(--line)] py-6 md:grid-cols-3">
-        <LineInput label="Name" />
-        <LineInput label="Roll Number" />
-        <LineInput label="Section" />
-      </section>
+      <div className="flex justify-between font-semibold mb-4 text-sm md:text-base">
+        <p>Time Allowed: {paper.durationMinutes} minutes</p>
+        <p>Maximum Marks: {paper.totalMarks}</p>
+      </div>
 
-      <div className="space-y-8 pt-7">
-        {paper.sections.map((section, sectionIndex) => (
-          <section key={section.id}>
-            <div className="flex flex-col gap-2 border-b border-[var(--line)] pb-3 md:flex-row md:items-end md:justify-between">
-              <div>
-                <h3 className="text-xl font-bold">{section.title || `Section ${sectionIndex + 1}`}</h3>
-                <p className="mt-1 text-sm text-[var(--muted)]">{section.instruction}</p>
+      <p className="font-semibold mb-8 text-sm md:text-base">All questions are compulsory unless stated otherwise.</p>
+
+      <div className="space-y-3 mb-10 text-sm font-semibold">
+        <div className="flex items-center gap-2">
+          <span>Name:</span>
+          <div className="h-[1px] w-48 bg-slate-900"></div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span>Roll Number:</span>
+          <div className="h-[1px] w-48 bg-slate-900"></div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span>Class: 5th Section:</span>
+          <div className="h-[1px] w-32 bg-slate-900"></div>
+        </div>
+      </div>
+
+      <div className="space-y-10">
+        {paper.sections.map((section, sectionIndex) => {
+          const parts = section.title.split(" - ");
+          const sectionLabel = parts[0] || `Section ${String.fromCharCode(65 + sectionIndex)}`;
+          const sectionName = parts.length > 1 ? parts.slice(1).join(" - ") : "";
+
+          return (
+            <section key={section.id}>
+              <h3 className="text-xl font-bold text-center mb-6">{sectionLabel}</h3>
+              
+              <div className="mb-4">
+                {sectionName && <h4 className="font-bold text-lg">{sectionName}</h4>}
+                <p className="italic text-sm text-slate-700">{section.instruction}</p>
               </div>
-              <p className="font-mono text-xs text-[var(--muted)]">{section.questions.length} questions</p>
-            </div>
-            <ol className="mt-4 space-y-4">
-              {section.questions.map((question, index) => (
-                <li key={question.id} className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-4 md:grid-cols-[32px_1fr_auto]">
-                  <span className="font-mono text-sm font-semibold text-[var(--muted)]">{index + 1}.</span>
-                  <p className="text-sm leading-7 text-slate-900 md:text-base">{question.text}</p>
-                  <div className="flex items-center gap-2 md:flex-col md:items-end">
-                    <DifficultyBadge difficulty={question.difficulty} />
-                    <span className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold">{question.marks} marks</span>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </section>
-        ))}
+
+              <ol className="space-y-5">
+                {section.questions.map((question, index) => (
+                  <li key={`${section.id}-${index}-${question.id}`} className="text-sm md:text-base flex gap-2">
+                    <span className="shrink-0">{index + 1}.</span>
+                    <div className="w-full">
+                      <p>
+                        [{difficultyLabels[question.difficulty]}] {question.text} [{question.marks} Marks]
+                      </p>
+                      {question.type === "mcq" && question.options?.length === 4 && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3 pl-4">
+                          {question.options.map((opt, i) => (
+                            <div key={i} className="flex gap-2">
+                              <span>{String.fromCharCode(65 + i)}.</span>
+                              <span>{opt}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          );
+        })}
+      </div>
+
+      <p className="font-bold mt-10 mb-12">End of Question Paper</p>
+
+      <div className="mt-12 border-t border-slate-300 pt-8">
+        <h3 className="text-xl font-bold mb-6">Answer Key:</h3>
+        <ol className="space-y-5">
+          {paper.sections.flatMap(s => s.questions).map((question, index) => (
+            <li key={`ans-${index}-${question.id}`} className="text-sm md:text-base flex gap-3">
+              <span className="shrink-0">{index + 1}.</span>
+              <p className="leading-relaxed whitespace-pre-wrap">{question.answer || "Answer not generated."}</p>
+            </li>
+          ))}
+        </ol>
       </div>
     </article>
   );
-}
-
-function DifficultyBadge({ difficulty }: { difficulty: Difficulty }) {
-  const className =
-    difficulty === "easy"
-      ? "bg-green-50 text-green-700 border-green-200"
-      : difficulty === "medium"
-        ? "bg-amber-50 text-amber-700 border-amber-200"
-        : "bg-red-50 text-red-700 border-red-200";
-  return <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${className}`}>{difficultyLabels[difficulty]}</span>;
 }
 
 function Generating() {

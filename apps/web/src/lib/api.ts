@@ -11,11 +11,33 @@ export async function createAssignment(data: FormData) {
   return parse<{ assignment: Assignment; jobId: string }>(response);
 }
 
+export async function listAssignments() {
+  const response = await fetch(`${API_URL}/api/assignments`, {
+    cache: "no-store",
+  });
+  return parse<{ assignments: Assignment[] }>(response);
+}
+
+export async function deleteAssignment(id: string) {
+  const response = await fetch(`${API_URL}/api/assignments/${id}`, {
+    method: "DELETE",
+  });
+  return parse<{ ok: true }>(response);
+}
+
 export async function getAssignment(id: string) {
   const response = await fetch(`${API_URL}/api/assignments/${id}`, {
     cache: "no-store",
   });
   return parse<{ assignment: Assignment }>(response);
+}
+
+export async function getAssignmentResult(id: string) {
+  const response = await fetch(`${API_URL}/api/assignments/${id}/result`, {
+    cache: "no-store",
+  });
+  if (response.status === 404) return null;
+  return parse<{ paper?: Assignment["paper"]; cached?: boolean }>(response);
 }
 
 export async function regenerateAssignment(id: string) {

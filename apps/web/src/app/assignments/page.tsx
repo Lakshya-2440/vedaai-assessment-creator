@@ -1,5 +1,5 @@
 import { AssignmentsDashboard } from "@/components/AssignmentsDashboard";
 
-export default function HomePage() {
+export default function AssignmentsPage() {
   return <AssignmentsDashboard />;
 }

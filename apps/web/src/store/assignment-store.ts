@@ -1,13 +1,13 @@
 "use client";
 
 import { create } from "zustand";
-import type { Assignment, QuestionType } from "@/lib/types";
+import type { Assignment, QuestionType, QuestionTypeConfig } from "@/lib/types";
 
 type FormState = {
   title: string;
   subject: string;
   dueDate: string;
-  questionTypes: QuestionType[];
+  questionTypes: QuestionTypeConfig[];
   questionCount: number;
   marksPerQuestion: number;
   durationMinutes: number;
@@ -22,19 +22,30 @@ type FormState = {
 type Store = {
   form: FormState;
   activeAssignment: Assignment | null;
+  assignments: Assignment[];
+  addAssignment: (assignment: Assignment) => void;
   setField: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
   toggleType: (type: QuestionType) => void;
   setActiveAssignment: (assignment: Assignment | null) => void;
   toFormData: () => FormData;
 };
 
+const tomorrow = new Date();
+tomorrow.setDate(tomorrow.getDate() + 7);
+
 const defaultForm: FormState = {
   title: "Grade 8 Science Assessment",
   subject: "Science",
-  dueDate: "",
-  questionTypes: ["mcq", "short", "long"],
-  questionCount: 12,
-  marksPerQuestion: 2,
+  dueDate: tomorrow.toISOString().split("T")[0],
+  questionTypes: [
+    { type: "mcq", count: 4, marks: 1 },
+    { type: "short", count: 3, marks: 2 },
+    { type: "long", count: 2, marks: 5 },
+    { type: "case", count: 1, marks: 4 },
+    { type: "numerical", count: 1, marks: 5 },
+  ],
+  questionCount: 11,
+  marksPerQuestion: 3,
   durationMinutes: 60,
   easy: 40,
   medium: 40,
@@ -47,16 +58,18 @@ const defaultForm: FormState = {
 export const useAssignmentStore = create<Store>((set, get) => ({
   form: defaultForm,
   activeAssignment: null,
+  assignments: [],
+  addAssignment: (assignment) => set((state) => ({ assignments: [...state.assignments, assignment] })),
   setField: (key, value) =>
     set((state) => ({
       form: { ...state.form, [key]: value },
     })),
   toggleType: (type) =>
     set((state) => {
-      const exists = state.form.questionTypes.includes(type);
+      const exists = state.form.questionTypes.some((item) => item.type === type);
       const next = exists
-        ? state.form.questionTypes.filter((item) => item !== type)
-        : [...state.form.questionTypes, type];
+        ? state.form.questionTypes.filter((item) => item.type !== type)
+        : [...state.form.questionTypes, { type, count: 1, marks: 1 }];
       return {
         form: {
           ...state.form,
