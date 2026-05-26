@@ -15,15 +15,16 @@ services:
       - key: MONGODB_URI
         sync: false
       - key: REDIS_URL
-        fromDatabase:
-          name: vedaai-redis
+        fromService:
+          type: keyvalue
+          name: vedaai-cache
           property: connectionString
       - key: HF_TOKEN
         sync: false
       - key: HF_MODEL
         value: mistralai/Mistral-7B-Instruct-v0.3
 
-databases:
-  - name: vedaai-redis
+  - type: keyvalue
+    name: vedaai-cache
     plan: free
     ipAllowList: []
