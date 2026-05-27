@@ -2,7 +2,7 @@ services:
   - type: web
     name: vedaai-api
     runtime: node
-    plan: free
+    plan: starter
     rootDir: apps/api
     buildCommand: npm ci && npm run build
     startCommand: npm start
