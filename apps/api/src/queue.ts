@@ -25,6 +25,16 @@ export const generationQueue = new Queue<AssignmentRequest>("question-generation
 let fallbackIo: SocketServer | null = null;
 
 export async function enqueueGeneration(assignmentId: string, request: AssignmentRequest) {
+  const io = fallbackIo;
+  if (!io) throw new Error("Generation worker has not started");
+
+  if (process.env.ENABLE_REDIS_QUEUE !== "true") {
+    void processAssignment(io, assignmentId, request).catch((generationError) =>
+      markFailed(io, assignmentId, generationError),
+    );
+    return { id: `inline-${assignmentId}-${Date.now()}` };
+  }
+
   try {
     return await withTimeout(
       generationQueue.add(
@@ -140,6 +150,11 @@ async function markFailed(io: SocketServer, assignmentId: string, error: unknown
 
 export function startGenerationWorker(io: SocketServer) {
   fallbackIo = io;
+  if (process.env.ENABLE_REDIS_QUEUE !== "true") {
+    console.log("Redis queue disabled; using inline background generation");
+    return null;
+  }
+
   const worker = new Worker<AssignmentRequest>(
     "question-generation",
     async (job: Job<AssignmentRequest>) => {
