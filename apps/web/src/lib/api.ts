@@ -9,9 +9,15 @@ export async function createAssignment(data: FormData) {
     body: data,
   });
   const body = await parse<unknown>(response);
-  const payload = unwrap(body) as { assignment?: Assignment; jobId?: string };
+  const payload = unwrap(body) as { assignment?: Assignment; assignmentId?: string; jobId?: string };
   if (payload.assignment) {
     return { assignment: payload.assignment, jobId: payload.jobId ?? "" };
+  }
+  if (payload.assignmentId) {
+    return {
+      assignment: { _id: payload.assignmentId } as Assignment,
+      jobId: payload.jobId ?? "",
+    };
   }
   throw new Error("Unexpected create-assignment response");
 }

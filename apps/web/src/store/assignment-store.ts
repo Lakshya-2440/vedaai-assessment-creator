@@ -84,7 +84,16 @@ export const useAssignmentStore = create<Store>((set, get) => ({
     data.set("title", form.title);
     data.set("subject", form.subject);
     data.set("dueDate", form.dueDate);
-    data.set("questionTypes", JSON.stringify(form.questionTypes));
+    data.set(
+      "questionTypes",
+      JSON.stringify(
+        form.questionTypes.map((item) => ({
+          type: item.type,
+          numQuestions: item.count,
+          marks: item.marks,
+        }))
+      )
+    );
     data.set("questionCount", String(form.questionCount));
     data.set("marksPerQuestion", String(form.marksPerQuestion));
     data.set("durationMinutes", String(form.durationMinutes));
