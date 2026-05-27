@@ -104,7 +104,8 @@ Root scripts:
 npm run dev          # API + web together
 npm run dev:api      # API only
 npm run dev:web      # Web only
-npm run build        # Build API and web
+npm run build        # Build web (Vercel-friendly)
+npm run build:all    # Build API and web
 npm run lint         # Typecheck API + lint web
 npm run services     # Start MongoDB and Redis
 npm run services:down
