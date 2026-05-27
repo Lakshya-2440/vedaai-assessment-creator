@@ -1,6 +1,9 @@
 import type { Assignment } from "./types";
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api/proxy";
+const DEFAULT_API_URL =
+  process.env.NODE_ENV === "production" ? "https://vedaai-api-kztt.onrender.com" : "/api/proxy";
+
+export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_URL).replace(/\/+$/, "");
 export const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "";
 
 export async function createAssignment(data: FormData) {
@@ -76,12 +79,26 @@ export function pdfUrl(id: string) {
 }
 
 async function parse<T>(response: Response): Promise<T> {
-  const body = await response.json().catch(() => ({}));
+  const text = await response.text().catch(() => "");
+  const body = text ? safeJson(text) : {};
   if (!response.ok) {
-    const message = body.message ?? body.error ?? "Request failed";
-    throw new Error(message);
+    const message =
+      body && typeof body === "object" && !Array.isArray(body)
+        ? ((body as { message?: string; error?: string }).message ??
+          (body as { message?: string; error?: string }).error)
+        : undefined;
+    const fallback = text.trim().slice(0, 180);
+    throw new Error(message ?? fallback ?? `Request failed with status ${response.status}`);
   }
   return body as T;
+}
+
+function safeJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
 }
 
 function unwrap<T>(body: unknown): T {

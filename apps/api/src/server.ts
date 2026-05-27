@@ -17,6 +17,7 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
 });
+const PDF_TEXT_PARSE_LIMIT_BYTES = 10 * 1024 * 1024;
 
 const io = new SocketServer(server, {
   cors: {
@@ -155,6 +156,9 @@ async function mergeSourceText(sourceText?: string, file?: Express.Multer.File) 
     return file.buffer.toString("utf8").slice(0, 8000);
   }
   if (file.mimetype.includes("pdf") || file.originalname.endsWith(".pdf")) {
+    if (file.size > PDF_TEXT_PARSE_LIMIT_BYTES) {
+      return `Uploaded file: ${file.originalname}. File accepted, but it is larger than the text extraction limit. Use this as teacher-provided source context if readable.`;
+    }
     try {
       const parser = new PDFParse({ data: file.buffer });
       const data = await parser.getText();

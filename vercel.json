@@ -3,5 +3,10 @@
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "outputDirectory": "apps/web/.next",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "env": {
+    "NEXT_PUBLIC_API_URL": "https://vedaai-api-kztt.onrender.com",
+    "NEXT_PUBLIC_WS_URL": "https://vedaai-api-kztt.onrender.com",
+    "API_BASE_URL": "https://vedaai-api-kztt.onrender.com"
+  }
 }

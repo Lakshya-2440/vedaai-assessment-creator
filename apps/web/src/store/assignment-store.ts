@@ -90,6 +90,7 @@ export const useAssignmentStore = create<Store>((set, get) => ({
         form.questionTypes.map((item) => ({
           type: item.type,
           count: item.count,
+          numQuestions: item.count,
           marks: item.marks,
         }))
       )
