@@ -21,6 +21,8 @@ const availableTypes = [
   { id: "numerical", label: "Numerical Problems" },
 ];
 
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+
 export default function CreateAssignment() {
   const router = useRouter();
   const { form, setField, toggleType, toFormData } = useAssignmentStore();
@@ -34,6 +36,7 @@ export default function CreateAssignment() {
     { id: "numerical", count: 5, marks: 5 },
   ]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [formError, setFormError] = useState("");
 
   const updateType = (index: number, field: keyof TypeRow, value: TypeRow[keyof TypeRow]) => {
     const next = [...types];
@@ -54,6 +57,11 @@ export default function CreateAssignment() {
 
   const handleNext = async () => {
     if (isGenerating) return;
+    if (form.file && form.file.size > MAX_UPLOAD_BYTES) {
+      setFormError("Please upload a file smaller than 10 MB.");
+      return;
+    }
+    setFormError("");
     setField("questionCount", totalQuestions);
     setField("marksPerQuestion", Math.round(totalMarks / totalQuestions) || 1);
     setField("questionTypes", types.map((t) => ({ type: t.id, count: t.count, marks: t.marks })));
@@ -66,10 +74,25 @@ export default function CreateAssignment() {
       router.push(`/assignments/${assignment._id}`);
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "Failed to generate assignment");
+      setFormError(err.message || "Failed to generate assignment");
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleFileChange = (file: File | null) => {
+    if (!file) {
+      setField("file", null);
+      setFormError("");
+      return;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setField("file", null);
+      setFormError("Please upload a file smaller than 10 MB.");
+      return;
+    }
+    setField("file", file);
+    setFormError("");
   };
 
   return (
@@ -142,12 +165,14 @@ export default function CreateAssignment() {
                 type="file" 
                 className="sr-only" 
                 accept=".pdf,.png,.jpeg,.jpg"
-                onChange={(e) => setField("file", e.target.files?.[0] || null)}
+                onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
               />
             </label>
             <p className="text-[10px] text-gray-400 mt-4">Upload images of your preferred document/image</p>
           </div>
         )}
+
+        {formError ? <p className="mb-5 text-sm text-red-600">{formError}</p> : null}
 
         <div className="mb-8">
           <label className="block text-sm font-bold text-gray-900 mb-2">Due Date</label>
