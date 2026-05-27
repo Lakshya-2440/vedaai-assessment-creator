@@ -89,7 +89,7 @@ export const useAssignmentStore = create<Store>((set, get) => ({
       JSON.stringify(
         form.questionTypes.map((item) => ({
           type: item.type,
-          numQuestions: item.count,
+          count: item.count,
           marks: item.marks,
         }))
       )

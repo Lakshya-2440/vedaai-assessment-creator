@@ -12,18 +12,31 @@ function jsonArray(value: unknown) {
   }
 }
 
+function questionTypeArray(value: unknown) {
+  const parsed = jsonArray(value);
+  if (!Array.isArray(parsed)) return parsed;
+  return parsed.map((item) => {
+    if (!item || typeof item !== "object") return item;
+    const candidate = item as { count?: unknown; numQuestions?: unknown };
+    return {
+      ...item,
+      count: candidate.count ?? candidate.numQuestions,
+    };
+  });
+}
+
 export const createAssignmentSchema = z
   .object({
     title: z.string().trim().min(3, "Title is required"),
     subject: z.string().trim().min(2, "Subject is required"),
     dueDate: z.string().trim().min(1, "Due date is required"),
     questionTypes: z.preprocess(
-      jsonArray,
+      questionTypeArray,
       z.array(
         z.object({
           type: z.enum(questionTypes),
-          count: z.number().int().min(1),
-          marks: z.number().int().min(1),
+          count: z.coerce.number().int().min(1),
+          marks: z.coerce.number().int().min(1),
         })
       ).min(1, "Pick at least one question type"),
     ),

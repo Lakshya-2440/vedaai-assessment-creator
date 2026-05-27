@@ -140,6 +140,9 @@ app.get("/api/assignments/:id/pdf", async (req, res, next) => {
 
 app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(error);
+  if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
+    return res.status(413).json({ message: "Please upload a file smaller than 50 MB." });
+  }
   const message = error instanceof Error ? error.message : "Unexpected error";
   res.status(400).json({ message });
 });

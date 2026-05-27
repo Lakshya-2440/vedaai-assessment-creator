@@ -21,11 +21,11 @@ const availableTypes = [
   { id: "numerical", label: "Numerical Problems" },
 ];
 
-const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 
 export default function CreateAssignment() {
   const router = useRouter();
-  const { form, setField, toggleType, toFormData } = useAssignmentStore();
+  const { form, setField, toFormData } = useAssignmentStore();
   
   // Local state for question types structure to match UI
   const [types, setTypes] = useState<TypeRow[]>([
@@ -58,7 +58,7 @@ export default function CreateAssignment() {
   const handleNext = async () => {
     if (isGenerating) return;
     if (form.file && form.file.size > MAX_UPLOAD_BYTES) {
-      setFormError("Please upload a file smaller than 10 MB.");
+      setFormError("Please upload a file smaller than 50 MB.");
       return;
     }
     setFormError("");
@@ -72,9 +72,9 @@ export default function CreateAssignment() {
       const { assignment } = await createAssignment(data);
       window.dispatchEvent(new Event("assignments:changed"));
       router.push(`/assignments/${assignment._id}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setFormError(err.message || "Failed to generate assignment");
+      setFormError(err instanceof Error ? err.message : "Failed to generate assignment");
     } finally {
       setIsGenerating(false);
     }
@@ -88,7 +88,7 @@ export default function CreateAssignment() {
     }
     if (file.size > MAX_UPLOAD_BYTES) {
       setField("file", null);
-      setFormError("Please upload a file smaller than 10 MB.");
+      setFormError("Please upload a file smaller than 50 MB.");
       return;
     }
     setField("file", file);
@@ -158,7 +158,7 @@ export default function CreateAssignment() {
           <div className="mb-6 flex flex-col items-center justify-center rounded-[18px] border-2 border-dashed border-gray-200 p-5 text-center sm:p-8">
             <UploadCloud className="w-6 h-6 text-gray-800 mb-3" />
             <p className="text-sm font-semibold text-gray-900 mb-1">Choose a file or drag & drop it here</p>
-            <p className="text-xs text-gray-500 mb-4">JPEG, PNG, PDF upto 10MB</p>
+            <p className="text-xs text-gray-500 mb-4">JPEG, PNG, PDF up to 50MB</p>
             <label className="cursor-pointer rounded-full bg-gray-100 px-4 py-2 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-200">
               Browse Files
               <input 
