@@ -42,6 +42,22 @@ export default function AssignmentOutputPage() {
   }, [id, setActiveAssignment]);
 
   useEffect(() => {
+    if (!/^https?:\/\//.test(WS_URL)) {
+      const interval = setInterval(() => {
+        getAssignment(id)
+          .then(({ assignment: next }) => {
+            setAssignment(next);
+            setActiveAssignment(next);
+            setMessage(statusMessage(next.status));
+            if (next.status === "failed" && next.error) setError(next.error);
+          })
+          .catch(() => {
+            // Keep previous state on transient polling failures.
+          });
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+
     let socket: Socket | null = io(WS_URL, { transports: ["websocket", "polling"] });
     socket.emit("assignment:join", id);
     socket.on("assignment:progress", (payload: { progress: number; message: string }) => {

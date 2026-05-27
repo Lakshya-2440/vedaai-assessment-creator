@@ -1,21 +1,29 @@
 import type { Assignment } from "./types";
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-export const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? API_URL;
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api/proxy";
+export const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "";
 
 export async function createAssignment(data: FormData) {
   const response = await fetch(`${API_URL}/api/assignments`, {
     method: "POST",
     body: data,
   });
-  return parse<{ assignment: Assignment; jobId: string }>(response);
+  const body = await parse<unknown>(response);
+  const payload = unwrap(body) as { assignment?: Assignment; jobId?: string };
+  if (payload.assignment) {
+    return { assignment: payload.assignment, jobId: payload.jobId ?? "" };
+  }
+  throw new Error("Unexpected create-assignment response");
 }
 
 export async function listAssignments() {
   const response = await fetch(`${API_URL}/api/assignments`, {
     cache: "no-store",
   });
-  return parse<{ assignments: Assignment[] }>(response);
+  const body = await parse<unknown>(response);
+  const payload = unwrap(body) as { assignments?: Assignment[] } | Assignment[];
+  if (Array.isArray(payload)) return { assignments: payload };
+  return { assignments: payload.assignments ?? [] };
 }
 
 export async function deleteAssignment(id: string) {
@@ -29,7 +37,12 @@ export async function getAssignment(id: string) {
   const response = await fetch(`${API_URL}/api/assignments/${id}`, {
     cache: "no-store",
   });
-  return parse<{ assignment: Assignment }>(response);
+  const body = await parse<unknown>(response);
+  const payload = unwrap(body) as { assignment?: Assignment } | Assignment;
+  if ("assignment" in (payload as { assignment?: Assignment }) && (payload as { assignment?: Assignment }).assignment) {
+    return { assignment: (payload as { assignment: Assignment }).assignment };
+  }
+  return { assignment: payload as Assignment };
 }
 
 export async function getAssignmentResult(id: string) {
@@ -44,7 +57,12 @@ export async function regenerateAssignment(id: string) {
   const response = await fetch(`${API_URL}/api/assignments/${id}/regenerate`, {
     method: "POST",
   });
-  return parse<{ assignment: Assignment; jobId: string }>(response);
+  const body = await parse<unknown>(response);
+  const payload = unwrap(body) as { assignment?: Assignment; jobId?: string };
+  if (payload.assignment) {
+    return { assignment: payload.assignment, jobId: payload.jobId ?? "" };
+  }
+  throw new Error("Unexpected regenerate response");
 }
 
 export function pdfUrl(id: string) {
@@ -54,7 +72,28 @@ export function pdfUrl(id: string) {
 async function parse<T>(response: Response): Promise<T> {
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(body.message ?? "Request failed");
+    const message = body.message ?? body.error ?? "Request failed";
+    throw new Error(message);
+  }
+  return body as T;
+}
+
+function unwrap<T>(body: unknown): T {
+  if (
+    body &&
+    typeof body === "object" &&
+    "success" in body &&
+    (body as { success?: boolean }).success === false
+  ) {
+    throw new Error((body as { message?: string; error?: string }).message ?? "Request failed");
+  }
+  if (
+    body &&
+    typeof body === "object" &&
+    "data" in body &&
+    (body as { success?: boolean }).success !== false
+  ) {
+    return (body as { data: T }).data;
   }
   return body as T;
 }
