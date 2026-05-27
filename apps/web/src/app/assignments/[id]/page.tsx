@@ -108,18 +108,18 @@ export default function AssignmentOutputPage() {
 
   return (
     <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <div className="sticky top-0 z-10 px-5 pt-4">
-        <div className="mx-auto max-w-7xl rounded-[28px] bg-[#232323] px-6 py-6 shadow-[0_18px_50px_rgba(0,0,0,0.18)] md:px-8 md:py-7">
-          <div className="flex flex-col gap-5 text-white md:flex-row md:items-end md:justify-between md:gap-8">
+      <div className="sticky top-0 z-10 px-4 pt-3 sm:px-5 sm:pt-4">
+        <div className="mx-auto max-w-7xl rounded-[28px] bg-[#232323] px-5 py-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)] sm:px-6 sm:py-6 md:px-8 md:py-7">
+          <div className="flex flex-col gap-4 text-white md:flex-row md:items-end md:justify-between md:gap-8">
             <div className="max-w-4xl">
-              <h1 className="mt-2 text-lg font-semibold leading-snug md:text-2xl">
+              <h1 className="mt-1 text-lg font-semibold leading-snug sm:mt-2 md:text-2xl">
                 {assignment?.subject
                   ? `Certainly, Lakshya! Here are customized Question Paper for your CBSE Grade 8 ${assignment.subject} classes on the NCERT chapters:`
                   : "Certainly, Lakshya! Here are customized Question Paper for your CBSE Grade 8 Science classes on the NCERT chapters:"}
               </h1>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 md:justify-end">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center md:justify-end">
               <button
                 type="button"
                 onClick={regenerate}
@@ -141,7 +141,7 @@ export default function AssignmentOutputPage() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-7xl px-5 py-6">
+      <div className="mx-auto max-w-7xl px-4 py-5 sm:px-5 sm:py-6">
         {loading ? <Generating /> : <PaperView paper={paper} />}
       </div>
     </main>
@@ -150,32 +150,32 @@ export default function AssignmentOutputPage() {
 
 function PaperView({ paper }: { paper: QuestionPaper }) {
   return (
-    <article className="rounded-lg border border-[var(--line)] bg-white px-5 py-8 shadow-sm md:px-12 md:py-12 text-slate-900">
-      <header className="text-center space-y-2 mb-8">
-        <h2 className="text-2xl font-bold md:text-3xl">Delhi Public School, Sector-4, Bokaro</h2>
-        <p className="text-lg font-semibold">Subject: {paper.subject}</p>
-        <p className="text-lg font-semibold">Class: 5th</p>
+    <article className="rounded-lg border border-[var(--line)] bg-white px-4 py-7 text-slate-900 shadow-sm sm:px-5 md:px-12 md:py-12">
+      <header className="mb-8 space-y-2 text-center">
+        <h2 className="text-xl font-bold sm:text-2xl md:text-3xl">Delhi Public School, Sector-4, Bokaro</h2>
+        <p className="text-base font-semibold sm:text-lg">Subject: {paper.subject}</p>
+        <p className="text-base font-semibold sm:text-lg">Class: 5th</p>
       </header>
 
-      <div className="flex justify-between font-semibold mb-4 text-sm md:text-base">
+      <div className="mb-4 flex flex-col gap-2 text-sm font-semibold sm:flex-row sm:items-center sm:justify-between md:text-base">
         <p>Time Allowed: {paper.durationMinutes} minutes</p>
         <p>Maximum Marks: {paper.totalMarks}</p>
       </div>
 
-      <p className="font-semibold mb-8 text-sm md:text-base">All questions are compulsory unless stated otherwise.</p>
+      <p className="mb-8 text-sm font-semibold md:text-base">All questions are compulsory unless stated otherwise.</p>
 
-      <div className="space-y-3 mb-10 text-sm font-semibold">
+      <div className="mb-10 space-y-3 text-sm font-semibold">
         <div className="flex items-center gap-2">
           <span>Name:</span>
-          <div className="h-[1px] w-48 bg-slate-900"></div>
+          <div className="h-[1px] min-w-20 flex-1 bg-slate-900"></div>
         </div>
         <div className="flex items-center gap-2">
           <span>Roll Number:</span>
-          <div className="h-[1px] w-48 bg-slate-900"></div>
+          <div className="h-[1px] min-w-20 flex-1 bg-slate-900"></div>
         </div>
         <div className="flex items-center gap-2">
           <span>Class: 5th Section:</span>
-          <div className="h-[1px] w-32 bg-slate-900"></div>
+          <div className="h-[1px] min-w-16 flex-1 bg-slate-900"></div>
         </div>
       </div>
 
@@ -187,23 +187,23 @@ function PaperView({ paper }: { paper: QuestionPaper }) {
 
           return (
             <section key={section.id}>
-              <h3 className="text-xl font-bold text-center mb-6">{sectionLabel}</h3>
+              <h3 className="mb-6 text-center text-lg font-bold sm:text-xl">{sectionLabel}</h3>
               
               <div className="mb-4">
-                {sectionName && <h4 className="font-bold text-lg">{sectionName}</h4>}
-                <p className="italic text-sm text-slate-700">{section.instruction}</p>
+                {sectionName && <h4 className="text-base font-bold sm:text-lg">{sectionName}</h4>}
+                <p className="text-sm italic text-slate-700">{section.instruction}</p>
               </div>
 
               <ol className="space-y-5">
                 {section.questions.map((question, index) => (
-                  <li key={`${section.id}-${index}-${question.id}`} className="text-sm md:text-base flex gap-2">
+                  <li key={`${section.id}-${index}-${question.id}`} className="flex gap-2 text-sm md:text-base">
                     <span className="shrink-0">{index + 1}.</span>
                     <div className="w-full">
                       <p>
                         [{difficultyLabels[question.difficulty]}] {question.text} [{question.marks} Marks]
                       </p>
                       {question.type === "mcq" && question.options?.length === 4 && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3 pl-4">
+                        <div className="mt-3 grid grid-cols-1 gap-2 pl-4 md:grid-cols-2">
                           {question.options.map((opt, i) => {
                             const cleaned = opt.replace(/^[A-Da-d][).:\-]\s*/, "");
                             return (
@@ -224,13 +224,13 @@ function PaperView({ paper }: { paper: QuestionPaper }) {
         })}
       </div>
 
-      <p className="font-bold mt-10 mb-12">End of Question Paper</p>
+      <p className="mt-10 mb-12 font-bold">End of Question Paper</p>
 
       <div className="mt-12 border-t border-slate-300 pt-8">
-        <h3 className="text-xl font-bold mb-6">Answer Key:</h3>
+        <h3 className="mb-6 text-lg font-bold sm:text-xl">Answer Key:</h3>
         <ol className="space-y-5">
           {paper.sections.flatMap(s => s.questions).map((question, index) => (
-            <li key={`ans-${index}-${question.id}`} className="text-sm md:text-base flex gap-3">
+            <li key={`ans-${index}-${question.id}`} className="flex gap-3 text-sm md:text-base">
               <span className="shrink-0">{index + 1}.</span>
               <p className="leading-relaxed whitespace-pre-wrap">{question.answer || "Answer not generated."}</p>
             </li>
@@ -243,7 +243,7 @@ function PaperView({ paper }: { paper: QuestionPaper }) {
 
 function Generating() {
   return (
-    <div className="flex min-h-[520px] items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--panel)] p-8 text-center shadow-sm">
+    <div className="flex min-h-[520px] items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--panel)] p-6 text-center shadow-sm sm:p-8">
       <div>
         <Loader2 className="mx-auto h-10 w-10 animate-spin text-[var(--accent)]" />
         <h2 className="mt-4 text-2xl font-semibold">Generating question paper</h2>
