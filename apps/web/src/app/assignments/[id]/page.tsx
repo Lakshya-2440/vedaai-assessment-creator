@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Download, Loader2, RefreshCcw } from "lucide-react";
 import { io, type Socket } from "socket.io-client";
@@ -42,21 +41,30 @@ export default function AssignmentOutputPage() {
   }, [id, setActiveAssignment]);
 
   useEffect(() => {
-    if (!/^https?:\/\//.test(WS_URL)) {
-      const interval = setInterval(() => {
-        getAssignment(id)
-          .then(({ assignment: next }) => {
-            setAssignment(next);
-            setActiveAssignment(next);
-            setMessage(statusMessage(next.status));
-            if (next.status === "failed" && next.error) setError(next.error);
-          })
-          .catch(() => {
-            // Keep previous state on transient polling failures.
-          });
-      }, 5000);
-      return () => clearInterval(interval);
-    }
+    let cancelled = false;
+    const refresh = () => {
+      getAssignment(id)
+        .then(({ assignment: next }) => {
+          if (cancelled) return;
+          setAssignment(next);
+          setActiveAssignment(next);
+          setMessage(statusMessage(next.status));
+          if (next.status === "failed" && next.error) setError(next.error);
+          if (next.status !== "failed") setError("");
+        })
+        .catch((err) => {
+          if (!cancelled) setError(err instanceof Error ? err.message : "Could not refresh assignment.");
+        });
+    };
+    const interval = setInterval(refresh, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [id, setActiveAssignment]);
+
+  useEffect(() => {
+    if (!/^https?:\/\//.test(WS_URL)) return;
 
     let socket: Socket | null = io(WS_URL, { transports: ["websocket", "polling"] });
     socket.emit("assignment:join", id);
@@ -72,6 +80,9 @@ export default function AssignmentOutputPage() {
     socket.on("assignment:error", (payload: { message: string }) => {
       setError(payload.message);
       setMessage("Generation failed");
+    });
+    socket.on("connect_error", () => {
+      setMessage("Realtime connection unavailable. Polling for updates.");
     });
     return () => {
       socket?.disconnect();
@@ -120,6 +131,7 @@ export default function AssignmentOutputPage() {
 
   const paper = assignment?.paper;
   const progress = assignment?.progress ?? 0;
+  const failed = assignment?.status === "failed";
   const loading = !paper || assignment?.status !== "completed";
 
   return (
@@ -158,7 +170,18 @@ export default function AssignmentOutputPage() {
       </div>
 
       <div className="mx-auto max-w-7xl px-4 py-5 sm:px-5 sm:py-6">
-        {loading ? <Generating /> : <PaperView paper={paper} />}
+        {failed ? (
+          <StatusPanel
+            title="Generation failed"
+            message={error || assignment?.error || "Could not generate this paper. Try regenerate."}
+            progress={progress}
+            failed
+          />
+        ) : loading ? (
+          <StatusPanel title="Generating question paper" message={message} progress={progress} />
+        ) : (
+          <PaperView paper={paper} />
+        )}
       </div>
     </main>
   );
@@ -257,34 +280,35 @@ function PaperView({ paper }: { paper: QuestionPaper }) {
   );
 }
 
-function Generating() {
+function StatusPanel({
+  title,
+  message,
+  progress,
+  failed = false,
+}: {
+  title: string;
+  message: string;
+  progress: number;
+  failed?: boolean;
+}) {
   return (
     <div className="flex min-h-[520px] items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--panel)] p-6 text-center shadow-sm sm:p-8">
-      <div>
-        <Loader2 className="mx-auto h-10 w-10 animate-spin text-[var(--accent)]" />
-        <h2 className="mt-4 text-2xl font-semibold">Generating question paper</h2>
+      <div className="w-full max-w-md">
+        {failed ? (
+          <RefreshCcw className="mx-auto h-10 w-10 text-red-500" />
+        ) : (
+          <Loader2 className="mx-auto h-10 w-10 animate-spin text-[var(--accent)]" />
+        )}
+        <h2 className="mt-4 text-2xl font-semibold">{title}</h2>
         <p className="mt-2 max-w-md text-sm leading-6 text-[var(--muted)]">
-          Worker is processing prompt, parsing structured JSON, saving result, then websocket will refresh this page.
+          {message || "Preparing generation job."}
         </p>
+        {!failed && (
+          <div className="mt-6 h-2 overflow-hidden rounded-full bg-gray-200">
+            <div className="h-full rounded-full bg-gray-900 transition-all" style={{ width: `${Math.max(5, progress)}%` }} />
+          </div>
+        )}
       </div>
-    </div>
-  );
-}
-
-function LineInput({ label }: { label: string }) {
-  return (
-    <div>
-      <p className="text-sm font-semibold">{label}</p>
-      <div className="mt-5 border-b border-slate-900" />
-    </div>
-  );
-}
-
-function Info({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <dt className="text-[var(--muted)]">{label}</dt>
-      <dd className="font-medium capitalize">{value}</dd>
     </div>
   );
 }

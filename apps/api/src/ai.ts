@@ -1,4 +1,3 @@
-import { InferenceClient } from "@huggingface/inference"; // Trigger restart
 import { config } from "./config.js";
 import type { AssignmentRequest, Difficulty, QuestionPaper, QuestionType } from "./types.js";
 import { questionPaperSchema } from "./validation.js";
@@ -18,6 +17,14 @@ const instructions: Record<QuestionType, string> = {
   case: "Read each scenario carefully and answer with evidence.",
   numerical: "Show all calculations clearly and specify units.",
 };
+
+const HF_TIMEOUT_MS = 45_000;
+const HF_CHAT_URL = "https://router.huggingface.co/v1/chat/completions";
+const FALLBACK_MODELS = [
+  "Qwen/Qwen2.5-72B-Instruct",
+  "meta-llama/Llama-3.1-8B-Instruct",
+  "Qwen/Qwen2.5-7B-Instruct",
+];
 
 function pickDifficulty(index: number, input: AssignmentRequest): Difficulty {
   const easyLimit = Math.round((input.questionCount * input.difficultyMix.easy) / 100);
@@ -149,28 +156,84 @@ export async function generateQuestionPaper(input: AssignmentRequest): Promise<Q
     return fallbackPaper(input);
   }
 
-  try {
-    const client = new InferenceClient(config.hfToken);
-    const response = await client.chatCompletion({
-      model: config.hfModel,
-      messages: [
-        {
-          role: "user",
-          content: promptFor(input),
-        },
-      ],
-      max_tokens: 3500,
-      temperature: 0.45,
-    });
-    const content = response.choices?.[0]?.message?.content;
-    if (!content) throw new Error("HF response was empty");
-    const parsed = JSON.parse(extractJson(content));
-    const paper = questionPaperSchema.parse(parsed);
-    return enforceCounts(paper, input);
-  } catch (error) {
-    console.error("HF generation failed; using structured fallback", error);
-    return fallbackPaper(input);
+  const models = modelCandidates();
+  const errors: string[] = [];
+
+  for (const model of models) {
+    try {
+      const content = await callHuggingFace(model, promptFor(input));
+      const parsed = JSON.parse(extractJson(content));
+      const paper = questionPaperSchema.parse(parsed);
+      console.log(`HF generation succeeded with ${model}`);
+      return enforceCounts(paper, input);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown HF error";
+      errors.push(`${model}: ${message}`);
+      console.error(`HF generation failed for ${model}: ${message}`);
+    }
   }
+
+  throw new Error(`LLM generation failed for all configured models. ${errors.join(" | ")}`);
+}
+
+function modelCandidates() {
+  return [...new Set([config.hfModel, ...FALLBACK_MODELS].filter(Boolean))];
+}
+
+async function callHuggingFace(model: string, prompt: string) {
+  const response = await withTimeout(
+    fetch(HF_CHAT_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.hfToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 3500,
+        temperature: 0.45,
+      }),
+    }),
+    HF_TIMEOUT_MS,
+  );
+
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`HF HTTP ${response.status}: ${safeErrorMessage(text)}`);
+  }
+
+  const payload = JSON.parse(text) as { choices?: Array<{ message?: { content?: string } }> };
+  const content = payload.choices?.[0]?.message?.content;
+  if (!content) throw new Error("HF response was empty");
+  return content;
+}
+
+function safeErrorMessage(text: string) {
+  try {
+    const parsed = JSON.parse(text) as { error?: { message?: string } | string };
+    if (typeof parsed.error === "string") return parsed.error;
+    if (parsed.error?.message) return parsed.error.message;
+  } catch {
+    // Return compact raw text below.
+  }
+  return text.slice(0, 240);
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`HF generation timed out after ${ms / 1000}s`)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
 }
 
 function enforceCounts(paper: QuestionPaper, input: AssignmentRequest): QuestionPaper {

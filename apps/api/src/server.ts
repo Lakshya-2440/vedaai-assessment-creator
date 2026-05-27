@@ -6,7 +6,7 @@ import { Server as SocketServer } from "socket.io";
 import { config } from "./config.js";
 import { connectMongo } from "./db.js";
 import { AssignmentModel } from "./models.js";
-import { enqueueGeneration, redis, startGenerationWorker } from "./queue.js";
+import { cacheDel, cacheGet, cacheSet, enqueueGeneration, startGenerationWorker } from "./queue.js";
 import { createPaperPdf } from "./pdf.js";
 import { createAssignmentSchema } from "./validation.js";
 import { PDFParse } from "pdf-parse";
@@ -80,12 +80,12 @@ app.get("/api/assignments/:id", async (req, res, next) => {
 
 app.get("/api/assignments/:id/result", async (req, res, next) => {
   try {
-    const cached = await redis.get(`assignment:${req.params.id}:paper`);
+    const cached = await cacheGet(`assignment:${req.params.id}:paper`);
     if (cached) return res.json({ paper: JSON.parse(cached), cached: true });
 
     const assignment = await AssignmentModel.findById(req.params.id);
     if (!assignment?.paper) return res.status(404).json({ message: "Result not ready" });
-    await redis.set(`assignment:${req.params.id}:paper`, JSON.stringify(assignment.paper), "EX", 60 * 30);
+    await cacheSet(`assignment:${req.params.id}:paper`, JSON.stringify(assignment.paper), 60 * 30);
     res.json({ paper: assignment.paper, cached: false });
   } catch (error) {
     next(error);
@@ -103,7 +103,7 @@ app.post("/api/assignments/:id/regenerate", async (req, res, next) => {
         $set: { status: "queued", progress: 5 }
       }
     );
-    await redis.del(`assignment:${req.params.id}:paper`);
+    await cacheDel(`assignment:${req.params.id}:paper`);
     const request = assignment.toJSON();
     request.status = "queued";
     request.progress = 5;
@@ -120,7 +120,7 @@ app.delete("/api/assignments/:id", async (req, res, next) => {
   try {
     const assignment = await AssignmentModel.findByIdAndDelete(req.params.id);
     if (!assignment) return res.status(404).json({ message: "Assignment not found" });
-    await redis.del(`assignment:${req.params.id}:paper`);
+    await cacheDel(`assignment:${req.params.id}:paper`);
     res.json({ ok: true });
   } catch (error) {
     next(error);

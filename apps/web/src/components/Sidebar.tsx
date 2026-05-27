@@ -3,12 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, Users, FileText, Settings, Sparkles, BookOpen, Clock } from "lucide-react";
+import { LayoutGrid, Users, FileText, Settings, Sparkles, Clock } from "lucide-react";
 import { listAssignments } from "@/lib/api";
 
 export function Sidebar() {
   const pathname = usePathname();
-  const isCreateAssignmentPage = pathname === "/assignments/new";
   const [assignmentCount, setAssignmentCount] = useState<number | null>(null);
 
   useEffect(() => {

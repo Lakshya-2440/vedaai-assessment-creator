@@ -22,7 +22,7 @@ services:
       - key: HF_TOKEN
         sync: false
       - key: HF_MODEL
-        value: mistralai/Mistral-7B-Instruct-v0.3
+        value: Qwen/Qwen2.5-72B-Instruct
 
   - type: keyvalue
     name: vedaai-cache
