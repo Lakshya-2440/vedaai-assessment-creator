@@ -11,12 +11,12 @@ export const redis = new Redis(config.redisUrl, {
 });
 
 export const generationQueue = new Queue<AssignmentRequest>("question-generation", {
-  connection: redis,
+  connection: redis as unknown as any,
 });
 
 export async function enqueueGeneration(assignmentId: string, request: AssignmentRequest) {
   return generationQueue.add(
-    "generate-paper",
+    "generate-paper" as any,
     request,
     {
       jobId: `${assignmentId}-${Date.now()}`,
@@ -65,7 +65,7 @@ export function startGenerationWorker(io: SocketServer) {
       });
       return paper;
     },
-    { connection: redis },
+    { connection: redis as unknown as any },
   );
 
   worker.on("failed", async (job, error) => {
